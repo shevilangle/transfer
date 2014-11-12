@@ -10,12 +10,13 @@ type Transfer struct {
 	Pool           *redis.Pool
 	FromString     string
 	PrefixToString string
-	Receivers      func([]byte) (error, []string, []interface{})
+	EventCountStr  string
+	Receivers      func([]byte) (error, []string, []interface{}, string)
 	SaveToDB       func(o interface{})
 }
 
-func NewTransfer(p *redis.Pool, f string, pt string, r func([]byte) (error, []string, []interface{}), s func(interface{})) *Transfer {
-	return &Transfer{Pool: p, FromString: f, PrefixToString: pt, Receivers: r, SaveToDB: s}
+func NewTransfer(p *redis.Pool, f string, pt string, evcs string, r func([]byte) (error, []string, []interface{}, string), s func(interface{})) *Transfer {
+	return &Transfer{Pool: p, FromString: f, PrefixToString: pt, EventCountStr: evcs, Receivers: r, SaveToDB: s}
 }
 
 func (t *Transfer) rab() {
@@ -27,11 +28,11 @@ func (t *Transfer) rab() {
 		switch n := psc.Receive().(type) {
 		case redis.Message:
 			log.Println("Message,channel :", n.Channel, ", data :", n.Data)
-			errs, subscribers, datas := t.Receivers(n.Data)
+			errs, subscribers, datas, et := t.Receivers(n.Data)
 			if errs == nil {
 				log.Println("s: ", subscribers)
 				if len(subscribers) > 0 {
-					t.b(subscribers, datas)
+					t.b(subscribers, datas, et)
 				}
 			} else {
 				panic(errs)
@@ -50,7 +51,7 @@ func (t *Transfer) rab() {
 	}
 }
 
-func (t *Transfer) b(r []string, es []interface{}) {
+func (t *Transfer) b(r []string, es []interface{}, et string) {
 	conn := t.Pool.Get()
 	defer conn.Close()
 
@@ -61,12 +62,14 @@ func (t *Transfer) b(r []string, es []interface{}) {
 
 	for i, receiver := range r {
 		log.Println("receiver: ", t.PrefixToString+receiver)
+		conn.Do("HINCRBY", t.EventCountStr+receiver, et, 1)
+
 		pubData, err := json.Marshal(es[i])
 		if err != nil {
 			log.Println("error: ", err)
 			return
 		}
-		log.Println("pubData: ", pubData)
+		//log.Println("pubData: ", pubData)
 		_, err = conn.Do("PUBLISH", t.PrefixToString+receiver, pubData)
 		log.Println("err: ", err)
 	}
