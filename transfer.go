@@ -38,7 +38,8 @@ func (t *Transfer) rab() {
 					t.b(subscribers, datas, et)
 				}
 			} else {
-				panic(errs)
+				log.Println("errs: ", errs)
+				//panic(errs)
 			}
 		case redis.PMessage:
 			log.Println("PMessage, pattern: ", n.Pattern, ", channel :", n.Channel, ", data :", n.Data)
