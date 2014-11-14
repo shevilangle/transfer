@@ -16,6 +16,9 @@ type Transfer struct {
 }
 
 func NewTransfer(p *redis.Pool, f string, pt string, evcs string, r func([]byte) (error, []string, []interface{}, string), s func(interface{})) *Transfer {
+	if r == nil {
+		return nil
+	}
 	return &Transfer{Pool: p, FromString: f, PrefixToString: pt, EventCountStr: evcs, Receivers: r, SaveToDB: s}
 }
 
@@ -57,7 +60,9 @@ func (t *Transfer) b(r []string, es []interface{}, et string) {
 
 	for _, data := range es {
 		log.Println("data: ", data)
-		t.SaveToDB(data)
+		if t.SaveToDB != nil {
+			t.SaveToDB(data)
+		}
 	}
 
 	for i, receiver := range r {
