@@ -60,7 +60,7 @@ func (t *Transfer) b(r []string, es []interface{}, et string) {
 	defer conn.Close()
 
 	for _, data := range es {
-		log.Println("data: ", data)
+		//log.Println("data: ", data)
 		if t.SaveToDB != nil {
 			t.SaveToDB(data)
 		}
